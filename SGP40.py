@@ -1,40 +1,13 @@
-import Adafruit_GPIO.SPI as SPI
-import Adafruit_MCP3008
+#!/usr/bin/python
+# -*- coding:utf-8 -*-
+
 import sys
-import numpy as np
-import csv
 import time
-sys.path.append("../")
-from DFRobot_Ozone import *
 import math
 import struct
 import smbus
-import Adafruit_DHT
-
-DHT_SENSOR = Adafruit_DHT.DHT22
-DHT_PIN = 4
 # import ctypes
 
-COLLECT_NUMBER   = 20              # collect number, the collection range is 1-100
-IIC_MODE         = 0x01            # default use IIC1
-
-'''
-   The first  parameter is to select i2c0 or i2c1
-   The second parameter is the i2c device address
-   The default address for i2c is OZONE_ADDRESS_3
-      OZONE_ADDRESS_0        0x70
-      OZONE_ADDRESS_1        0x71
-      OZONE_ADDRESS_2        0x72
-      OZONE_ADDRESS_3        0x73
-'''
-ozone = DFRobot_Ozone_IIC(IIC_MODE ,OZONE_ADDRESS_3)
-'''
-  The module is configured in automatic mode or passive
-    MEASURE_MODE_AUTOMATIC  active  mode
-    MEASURE_MODE_PASSIVE    passive mode
-''' 
-ozone.set_mode(MEASURE_MODE_AUTOMATIC)
-#####################################################################################################################################################################################
 # voc = ctypes.cdll.LoadLibrary('./voclib.so')
 
 SGP40_CMD_FEATURE_SET = [0x20, 0x2F]
@@ -115,13 +88,13 @@ class SGP40:
     def measureRaw(self, temperature, humidity):
         # 2*humi + CRC
         #paramh = struct.pack(">H", math.ceil(humidity * 0xffff / 100))
-        h = humidity * 0xffff // 100
+        h = humidity * 0xffff / 100
         paramh = (h >> 8, h & 0xff)
         crch = self.__crc(paramh[0], paramh[1])
         
         # 2*temp + CRC
         #paramt = struct.pack(">H", math.ceil((temperature + 45) * 0xffff / 175))
-        t = (temperature + 45) * 0xffff // 175
+        t = (temperature + 45) * 0xffff / 175
         paramt = (t >> 8, t & 0xff)
         crct = self.__crc(paramt[0], paramt[1])
         
@@ -145,63 +118,33 @@ class SGP40:
             crc ^= lsb
             crc = CRC_TABLE[crc]
         return crc
- #######################################################################################################################
-system_voltage = 5
-resolution = 1024
-#1st ADC Converter Config
-CLK  = 18
-MISO = 23
-MOSI = 24
-CS   = 25
-CS2 = 26
-mcp = Adafruit_MCP3008.MCP3008(clk=CLK, cs=CS, miso=MISO, mosi=MOSI)
-mcp2 = Adafruit_MCP3008.MCP3008(clk=CLK, cs=CS2, miso=MISO, mosi=MOSI)
-def PPM_Reading(reading):
-    return(3.125*reading - 1.25)
+    
+import numpy as np
+import csv
 
-def Analog_Read(ADC_Reading):
-  return(ADC_Reading*(5/1024))
+arr = np.zeros(1)
 
-#Convert Analog Data to Digital Data and store it in an np array
-print('Reading MCP3008 values, press Ctrl-C to quit...')
-# Print nice channel column headers.
-print('| {0:>4} | {1:>4} | {2:>4} | {3:>4} | {4:>4} | {5:>4} | {6:>4} | {7:>4} | {8:>4} | {9:>4} | {10:>4} | {11:>4} | {12:>4} | {13:>4} | {14:>4} | {15:>4} | {16:>4} | {17:>4} |'.format(*range(18)))
-print('-' * 57)
-rows, cols = (1, 18) # 1 x 16 vector for two ADC conververters of size 8 and 2 other sensors
-arr = np.zeros((rows, cols))
-i = 0
-
-def createCSVfile(arr):
-    path_to_csv_file = '/home/pi/Desktop/AllSensorsCombined/allsensors.csv'
-    f = open(path_to_csv_file, 'w')
-    writer = csv.writer(f)
-    writer.writerows(arr)
-    f.close()
-# can also use for ozone sensor print("Raw Gas: ", sgp.raw())
-#  print("measureRaw Gas: %d" %arr_voc [np.size(arr)-1])
-#  print("Ozone concentration is %d PPB."%arr_oz[np.size(arr) - 1])
-#  time.sleep(1)
 if __name__ == '__main__':
     sgp = SGP40()
-    while(i < 5):
-        # Read all the ADC channel values in an np array.
-        print(i)
-        # Read all the ADC channel values in an np array.
-        humidity, temperature = Adafruit_DHT.read(DHT_SENSOR, DHT_PIN)
-        if humidity is not None and temperature is not None:
-            #print("Temp={0:0.1f}C Humidity={1:0.1f}%".format(temperature, humidity), ozone.get_ozone_data(COLLECT_NUMBER), sgp.measureRaw(25, 50))
-            arr = np.append(arr, [[PPM_Reading(mcp.read_adc(0)), Analog_Read(mcp.read_adc(1)), Analog_Read(mcp.read_adc(2)), Analog_Read(mcp.read_adc(3)), Analog_Read(mcp.read_adc(4)),Analog_Read(mcp.read_adc(5)),PPM_Reading(mcp2.read_adc(0)), Analog_Read(mcp2.read_adc(1)), Analog_Read(mcp2.read_adc(2)), Analog_Read(mcp2.read_adc(3)), Analog_Read(mcp2.read_adc(4)),Analog_Read(mcp2.read_adc(5)), Analog_Read(mcp2.read_adc(6)), Analog_Read(mcp2.read_adc(7)), ozone.get_ozone_data(COLLECT_NUMBER), sgp.measureRaw(25, 50), temperature, humidity]], axis=0)
-            k = np.size(arr, axis = 0) - 1
-            print('| ',arr[k,0],' | ',arr[k,1],' | ',arr[k,2],' | ',arr[k,3],' | ',arr[k,4],' | ',arr[k,5],' | ',arr[k,6],' | ',arr[k,7],' | ',arr[k,8],' | ',arr[k,9],' | ',arr[k,10],' | ',arr[k,11],' | ',arr[k,12],' | ',arr[k,13],' | ',arr[k,14],' | ',arr[k,15],' | ',arr[k,16],' | ',arr[k,17],' |')#,arr[k,18],' |')
-        else:
-            print("failure");
-        time.sleep(3)
-        i = i + 1
-    print(np.size(arr))
-    arr = np.delete(arr, 0, 0)
-    print(arr[0,:])
-    createCSVfile(arr)
+    time.sleep(1)
+    try:
+        while(1): #NEED TO CHANGE CONDITION LATER
+            print("Raw Gas: ", sgp.raw())
+            arr = np.append(arr, sgp.measureRaw(25, 50))
+            print("measureRaw Gas: %d" %arr[np.size(arr)-1])
+            time.sleep(1)
 
+    except KeyboardInterrupt:
+        exit()
+        
+arr = np.delete(arr, 0)
+print(arr)
 
+def createCSVfile():
+    path_to_csv_file = '/home/pi/Desktop/VOC Sensor/VOCData.csv'
+    f = open(path_to_csv_file, 'w')
+    writer = csv.writer(f)
+    writer.writerow(arr)
+    f.close()
 
-
+createCSVfile()

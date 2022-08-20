@@ -1,19 +1,27 @@
-import Adafruit_GPIO.SPI as SPI
-import Adafruit_MCP3008
-import sys
+# -*- coding:utf-8 -*-
+'''!
+  @file get_ozone_data.py
+  @brief Reading ozone concentration, A concentration of one part per billion (PPB).
+  @n step: we must first determine the iic device address, will dial the code switch A0, A1 (OZONE_ADDRESS_0 for [0 0]), (OZONE_ADDRESS_1 for [1 0]), (OZONE_ADDRESS_2 for [0 1]), (OZONE_ADDRESS_3 for [1 1]).
+  @n       Then configure the mode of active and passive acquisition, Finally, ozone data can be read.
+  @n note: it takes time to stable oxygen concentration, about 3 minutes.
+  @copyright Copyright (c) 2010 DFRobot Co.Ltd (http://www.dfrobot.com)
+  @license The MIT License (MIT)
+  @author [ZhixinLiu](zhixin.liu@dfrobot.com)
+  @version V1.0
+  @date 2020-5-27
+  @url https://github.com/DFRobot/DFRobot_Ozone
+'''
 import numpy as np
 import csv
+import sys
 import time
 sys.path.append("../")
 from DFRobot_Ozone import *
+
 import math
 import struct
 import smbus
-import Adafruit_DHT
-
-DHT_SENSOR = Adafruit_DHT.DHT22
-DHT_PIN = 4
-# import ctypes
 
 COLLECT_NUMBER   = 20              # collect number, the collection range is 1-100
 IIC_MODE         = 0x01            # default use IIC1
@@ -145,63 +153,25 @@ class SGP40:
             crc ^= lsb
             crc = CRC_TABLE[crc]
         return crc
- #######################################################################################################################
-system_voltage = 5
-resolution = 1024
-#1st ADC Converter Config
-CLK  = 18
-MISO = 23
-MOSI = 24
-CS   = 25
-CS2 = 26
-mcp = Adafruit_MCP3008.MCP3008(clk=CLK, cs=CS, miso=MISO, mosi=MOSI)
-mcp2 = Adafruit_MCP3008.MCP3008(clk=CLK, cs=CS2, miso=MISO, mosi=MOSI)
-def PPM_Reading(reading):
-    return(3.125*reading - 1.25)
-
-def Analog_Read(ADC_Reading):
-  return(ADC_Reading*(5/1024))
-
-#Convert Analog Data to Digital Data and store it in an np array
-print('Reading MCP3008 values, press Ctrl-C to quit...')
-# Print nice channel column headers.
-print('| {0:>4} | {1:>4} | {2:>4} | {3:>4} | {4:>4} | {5:>4} | {6:>4} | {7:>4} | {8:>4} | {9:>4} | {10:>4} | {11:>4} | {12:>4} | {13:>4} | {14:>4} | {15:>4} | {16:>4} | {17:>4} |'.format(*range(18)))
-print('-' * 57)
-rows, cols = (1, 18) # 1 x 16 vector for two ADC conververters of size 8 and 2 other sensors
+ #################################################################################################################################################################
+rows, cols = (1, 2) # 1 x 2 for 2 sensors
 arr = np.zeros((rows, cols))
-i = 0
 
-def createCSVfile(arr):
-    path_to_csv_file = '/home/pi/Desktop/AllSensorsCombined/allsensors.csv'
-    f = open(path_to_csv_file, 'w')
-    writer = csv.writer(f)
-    writer.writerows(arr)
-    f.close()
-# can also use for ozone sensor print("Raw Gas: ", sgp.raw())
-#  print("measureRaw Gas: %d" %arr_voc [np.size(arr)-1])
-#  print("Ozone concentration is %d PPB."%arr_oz[np.size(arr) - 1])
-#  time.sleep(1)
 if __name__ == '__main__':
     sgp = SGP40()
-    while(i < 5):
-        # Read all the ADC channel values in an np array.
-        print(i)
-        # Read all the ADC channel values in an np array.
-        humidity, temperature = Adafruit_DHT.read(DHT_SENSOR, DHT_PIN)
-        if humidity is not None and temperature is not None:
-            #print("Temp={0:0.1f}C Humidity={1:0.1f}%".format(temperature, humidity), ozone.get_ozone_data(COLLECT_NUMBER), sgp.measureRaw(25, 50))
-            arr = np.append(arr, [[PPM_Reading(mcp.read_adc(0)), Analog_Read(mcp.read_adc(1)), Analog_Read(mcp.read_adc(2)), Analog_Read(mcp.read_adc(3)), Analog_Read(mcp.read_adc(4)),Analog_Read(mcp.read_adc(5)),PPM_Reading(mcp2.read_adc(0)), Analog_Read(mcp2.read_adc(1)), Analog_Read(mcp2.read_adc(2)), Analog_Read(mcp2.read_adc(3)), Analog_Read(mcp2.read_adc(4)),Analog_Read(mcp2.read_adc(5)), Analog_Read(mcp2.read_adc(6)), Analog_Read(mcp2.read_adc(7)), ozone.get_ozone_data(COLLECT_NUMBER), sgp.measureRaw(25, 50), temperature, humidity]], axis=0)
+    time.sleep(1)
+    try:
+        while(1):
+            ''' Smooth data collection the collection range is 1-100 '''
+            print("Raw Gas: ", sgp.raw())
+            arr = np.append(arr, [[sgp.measureRaw(25, 50), ozone.get_ozone_data(COLLECT_NUMBER)]], axis=0)
             k = np.size(arr, axis = 0) - 1
-            print('| ',arr[k,0],' | ',arr[k,1],' | ',arr[k,2],' | ',arr[k,3],' | ',arr[k,4],' | ',arr[k,5],' | ',arr[k,6],' | ',arr[k,7],' | ',arr[k,8],' | ',arr[k,9],' | ',arr[k,10],' | ',arr[k,11],' | ',arr[k,12],' | ',arr[k,13],' | ',arr[k,14],' | ',arr[k,15],' | ',arr[k,16],' | ',arr[k,17],' |')#,arr[k,18],' |')
-        else:
-            print("failure");
-        time.sleep(3)
-        i = i + 1
-    print(np.size(arr))
-    arr = np.delete(arr, 0, 0)
-    print(arr[0,:])
-    createCSVfile(arr)
+            print("measureRaw Gas: %d" %arr[k, 0])
+            print("Ozone concentration is %d PPB."%arr[k, 1])
+            time.sleep(1)
 
-
-
-
+    except KeyboardInterrupt:
+        exit()
+        
+arr = np.delete(arr, 0, 0)
+print(arr)
